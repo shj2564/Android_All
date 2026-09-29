@@ -1,0 +1,23 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "kr.song.peugeot.frontautov18"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "kr.song.peugeot.frontautov18"
+        minSdk 21
+        targetSdk 27
+        versionCode 18
+        versionName "18.0-background-auto"
+    }
+
+    buildTypes {
+        debug { minifyEnabled false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

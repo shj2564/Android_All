@@ -1,0 +1,55 @@
+name: Build FrontCamera v11
+
+on:
+  push:
+    branches:
+      - build/frontcam-v11-source
+    paths:
+      - ".github/workflows/build-frontcam-v11.yml"
+      - "tools/frontcam-v11/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build debug APK
+        run: gradle -p tools/frontcam-v11 :app:assembleDebug --stacktrace
+
+      - name: Verify APK with Android SDK tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="tools/frontcam-v11/app/build/outputs/apk/debug/app-debug.apk"
+          BT="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          echo "build-tools=$BT" | tee tools/frontcam-v11/APK-VERIFY.txt
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --verbose --print-certs "$APK" | tee -a tools/frontcam-v11/APK-VERIFY.txt
+          "$ANDROID_HOME/build-tools/$BT/aapt" dump badging "$APK" | tee tools/frontcam-v11/APK-BADGING.txt
+          sha256sum "$APK" | tee tools/frontcam-v11/APK-SHA256.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontcam-v11-apk-verified
+          path: |
+            tools/frontcam-v11/app/build/outputs/apk/debug/app-debug.apk
+            tools/frontcam-v11/APK-SHA256.txt
+            tools/frontcam-v11/APK-VERIFY.txt
+            tools/frontcam-v11/APK-BADGING.txt
+          if-no-files-found: error

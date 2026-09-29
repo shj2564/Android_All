@@ -1,0 +1,92 @@
+name: CMZX Instrument Cluster Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'projects/CMZXInstrumentClusterCheck/**'
+      - '.github/workflows/cmzx-instrument-cluster-diag.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Resolve Android SDK manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          "$SDKMANAGER" --version
+
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Verify fixed protocol vectors
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          def frame(l, r):
+              a=[0x05,0x8C,l,r]
+              return [0xFD,*a,sum(a)&0xFF]
+          assert frame(0,0)==[0xFD,0x05,0x8C,0,0,0x91]
+          assert frame(8,8)==[0xFD,0x05,0x8C,8,8,0xA1]
+          for l in range(9):
+              for r in range(9):
+                  f=frame(l,r)
+                  assert len(f)==6 and f[2]==0x8C and f[3]==l and f[4]==r
+          print("81 cluster value pairs verified")
+          PY
+
+      - name: Build debug APK
+        working-directory: projects/CMZXInstrumentClusterCheck/android
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify and stage APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          IN="projects/CMZXInstrumentClusterCheck/android/app/build/outputs/apk/debug/app-debug.apk"
+          OUTDIR="projects/CMZXInstrumentClusterCheck/output"
+          OUT="$OUTDIR/CMZX-InstrumentClusterCheck-v01.apk"
+          mkdir -p "$OUTDIR"
+          cp "$IN" "$OUT"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$OUT"
+          sha256sum "$OUT" | tee "$OUTDIR/SHA256.txt"
+
+      - name: Publish verified APK to branch package folder
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="package/cmzx-instrument-cluster"
+          mkdir -p "$DEST"
+          cp projects/CMZXInstrumentClusterCheck/output/CMZX-InstrumentClusterCheck-v01.apk "$DEST/"
+          cp projects/CMZXInstrumentClusterCheck/output/SHA256.txt "$DEST/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$DEST/CMZX-InstrumentClusterCheck-v01.apk" "$DEST/SHA256.txt"
+          if git diff --cached --quiet; then
+            echo "Verified package already published."
+          else
+            git commit -m "Publish verified CMZX instrument cluster diagnostic APK"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi

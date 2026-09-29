@@ -1,0 +1,69 @@
+name: Build FrontCamera v18 background auto
+
+on:
+  push:
+    branches:
+      - build/frontcam-v18-background-auto
+    paths:
+      - ".github/workflows/build-frontcam-v18.yml"
+      - "tools/frontcam-v18/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build
+        run: gradle -p tools/frontcam-v18 :app:assembleDebug --stacktrace
+
+      - name: Verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="tools/frontcam-v18/app/build/outputs/apk/debug/app-debug.apk"
+          BT="$(ls -1 "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$ANDROID_HOME/build-tools/$BT/apksigner" verify --verbose --print-certs "$APK" | tee tools/frontcam-v18/APK-VERIFY.txt
+          "$ANDROID_HOME/build-tools/$BT/aapt" dump badging "$APK" | tee tools/frontcam-v18/APK-BADGING.txt
+          sha256sum "$APK" | tee tools/frontcam-v18/APK-SHA256.txt
+          grep -F "package: name='kr.song.peugeot.frontautov18'" tools/frontcam-v18/APK-BADGING.txt
+          grep -F "targetSdkVersion:'27'" tools/frontcam-v18/APK-BADGING.txt
+
+      - name: Persist build without Actions artifact storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="tools/frontcam-v18/app/build/outputs/apk/debug/app-debug.apk"
+          OUT="build-artifacts/frontcam-v18"
+          mkdir -p "$OUT"
+          base64 -w0 "$APK" > "$OUT/CMZX-FrontCamera-v18-BACKGROUND-AUTO.apk.b64"
+          cp tools/frontcam-v18/APK-VERIFY.txt "$OUT/"
+          cp tools/frontcam-v18/APK-BADGING.txt "$OUT/"
+          cp tools/frontcam-v18/APK-SHA256.txt "$OUT/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "No build changes"
+          else
+            git commit -m "Persist v18 background auto build"
+            git push
+          fi
+
+      - name: Upload chat-download artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontcam-v18-background-auto
+          path: tools/frontcam-v18/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

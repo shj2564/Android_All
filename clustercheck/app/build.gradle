@@ -1,0 +1,14 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'kr.song.peugeot.clustercheck'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'kr.song.peugeot.clusterfinal'
+        minSdk 21
+        targetSdk 33
+        versionCode 100
+        versionName '1.0-final'
+    }
+}

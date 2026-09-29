@@ -1,0 +1,23 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "kr.song.peugeot.rearsourceholdv16"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "kr.song.peugeot.rearsourceholdv16"
+        minSdk 21
+        targetSdk 27
+        versionCode 16
+        versionName "16.0-rear-source-hold"
+    }
+
+    buildTypes {
+        debug { minifyEnabled false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

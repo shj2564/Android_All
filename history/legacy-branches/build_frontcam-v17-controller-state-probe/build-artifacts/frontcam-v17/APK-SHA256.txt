@@ -1,0 +1,1 @@
+1b5c3242a18d92439f2e62effb9293c8f26dbeebf7c479f3dd0601690fe8b82a  tools/frontcam-v17/app/build/outputs/apk/debug/app-debug.apk

@@ -1,0 +1,54 @@
+name: Build ClusterCheck APK
+
+on:
+  push:
+    branches:
+      - clustercheck-build-20260927
+    paths-ignore:
+      - 'clustercheck/dist/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install required Android SDK packages
+        run: |
+          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build debug APK
+        working-directory: clustercheck
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Prepare named APK
+        run: |
+          mkdir -p clustercheck/dist
+          cp clustercheck/app/build/outputs/apk/debug/app-debug.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk
+          sha256sum clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk | tee clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.sha256
+      - name: Commit APK to build branch
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.sha256
+          git commit -m "Add built ClusterRestore FINAL v1.0 APK" || exit 0
+          git push origin HEAD:clustercheck-build-20260927

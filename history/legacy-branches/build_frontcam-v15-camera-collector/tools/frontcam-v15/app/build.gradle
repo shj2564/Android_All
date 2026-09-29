@@ -1,0 +1,27 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "kr.song.peugeot.cameracollectorv15"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "kr.song.peugeot.cameracollectorv15"
+        minSdk 21
+        targetSdk 27
+        versionCode 15
+        versionName "15.0-camera-collector"
+    }
+
+    buildTypes {
+        debug { minifyEnabled false }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation "androidx.core:core:1.13.1"
+}
