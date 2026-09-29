@@ -1,0 +1,22 @@
+{
+  "ecj.jar": {
+    "url": "https://repo.maven.apache.org/maven2/org/eclipse/jdt/ecj/3.33.0/ecj-3.33.0.jar",
+    "sha256": "f7686c4960cf70c2ebc5c500a73a8cfc04541b730c18f1c5c21329889b137f45"
+  },
+  "android.jar": {
+    "url": "https://repo.maven.apache.org/maven2/com/google/android/android/4.1.1.4/android-4.1.1.4.jar",
+    "sha256": "84072541cbb711eff89f7277100ff854929a446dba7ceb1b195c340e0b4fd3cb"
+  },
+  "r8.jar": {
+    "url": "https://dl.google.com/dl/android/maven2/com/android/tools/r8/8.3.37/r8-8.3.37.jar",
+    "sha256": "59753e70a74f918389cc87f1b7d66b5c0862932559167425708ded159e3de439"
+  },
+  "aapt2.jar": {
+    "url": "https://dl.google.com/dl/android/maven2/com/android/tools/build/aapt2/8.2.2-10154469/aapt2-8.2.2-10154469-linux.jar",
+    "sha256": "80c4ce1dbad130ef5600f46c911318d3eff87698425e1aa94c40712d8d8cb2f1"
+  },
+  "apksig.jar": {
+    "url": "https://dl.google.com/dl/android/maven2/com/android/tools/build/apksig/8.2.2/apksig-8.2.2.jar",
+    "sha256": "468ee1852fa12461c6629608fe47be70e50f60be7c4744bb7f62ca48e85c0a6c"
+  }
+}

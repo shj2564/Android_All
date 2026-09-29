@@ -1,0 +1,52 @@
+사용자 확인: 하향성공
+
+[MIRROR_TRIAL_0_3]
+시각: 2026-09-14 14:54:07 +0900
+요청: ON 1회
+serviceVersion: 260129-1424
+serviceCode: 26012914
+serviceSha256: 8c7b9ee385fe2503dd592b6114436235a1e0bcefd8f6c80b6e9a3478b5d074d9
+api: 27
+hardware: mt6765
+model: psa_5008_2014_2019
+platform: mtk6762
+version: 
+mcuVersion: 95.08@260715
+manufacturer: peugeot
+configuration: generic
+modelPlatform: psa
+productCode: CMZXR62N-U1
+productName: Car Navigation
+productManufacturerCode: AN15N000
+productManufacturerName: product_manufacturer_name
+readableManufacturerName: Peugeot/Citroen
+readableModelName: 2014~2019 5008
+readableConfigName: General
+canBoxType: raise
+decoder: raise-psa
+boxVersion: PSA-RZ-15-0128.212.06-HSE
+envVersion: PSA-RZ-15-0128.212.06-HSE
+scriptVersion: 26090708
+CANBox 연결: true / 일시중지: false
+변경 전 0x38 캐시: 00 49 E5 00 A0 F0 C3 1F 80
+실차 기준 및 명령 계산: 일치
+현재 후보값: OFF
+요청 형식: FD 05 80 1E 01 A4
+설정 write 호출: 예외 없이 반환 (차량 적용 확인은 아님)
++2002 ms 캐시: 00 49 E1 00 A8 F0 C3 1F 80
++4005 ms 캐시: 00 49 E1 00 A8 F0 C3 1F 80
++6007 ms 캐시: 00 49 E1 00 A8 F0 C3 1F 80
++8009 ms 캐시: 00 49 E1 00 A8 F0 C3 1F 80
+
+호출 직전부터 관찰한 앱 수신 콜백:
++95 ms: 0x38 00 49 E1 00 A8 F0 C3 1F 80
++2798 ms: 0x38 00 49 E1 00 A8 F0 C3 1F 80
+
+수신 캐시 변화: true
+후보값: ON
+후보 비트가 요청값과 일치합니다. 실제 거울 동작을 별도로 확인하세요.
+캐시는 패킷 수신 시각이 없으며 콜백도 차량 적용 응답(ACK)으로 단정하지 않습니다.
+
+설정 호출 시도: 1회
+설정 호출 정상 반환: true
+실제 미러 동작: 사용자 확인 필요

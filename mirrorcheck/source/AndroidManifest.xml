@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="kr.song.peugeot.mirrorcheck" android:versionCode="3" android:versionName="0.3-trial">
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+    <queries><package android:name="com.reglink.services" /></queries>
+    <application android:label="5008 미러 진단" android:allowBackup="false"
+        android:icon="@android:drawable/ic_menu_info_details"
+        android:theme="@android:style/Theme.Holo.Light.NoActionBar">
+        <activity android:name=".MirrorTrialActivity" android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
