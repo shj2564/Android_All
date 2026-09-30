@@ -3,7 +3,7 @@ name: Build MassageRepair APK
 on:
   push:
     branches:
-      - massagecheck-build-20260929
+      - main
     paths-ignore:
       - 'massagecheck/dist/**'
   workflow_dispatch:
@@ -37,20 +37,20 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p massagecheck/dist
-          cp massagecheck/app/build/outputs/apk/debug/app-debug.apk massagecheck/dist/CMZX-MassageRepair-v01.apk
-          sha256sum massagecheck/dist/CMZX-MassageRepair-v01.apk | tee massagecheck/dist/CMZX-MassageRepair-v01.sha256
+          cp massagecheck/app/build/outputs/apk/debug/app-debug.apk massagecheck/dist/CMZX-MassageRepair-v02.apk
+          sha256sum massagecheck/dist/CMZX-MassageRepair-v02.apk | tee massagecheck/dist/CMZX-MassageRepair-v02.sha256
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CMZX-MassageRepair-v01
+          name: CMZX-MassageRepair-v02
           path: |
-            massagecheck/dist/CMZX-MassageRepair-v01.apk
-            massagecheck/dist/CMZX-MassageRepair-v01.sha256
+            massagecheck/dist/CMZX-MassageRepair-v02.apk
+            massagecheck/dist/CMZX-MassageRepair-v02.sha256
           if-no-files-found: error
       - name: Commit APK
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add massagecheck/dist/CMZX-MassageRepair-v01.apk massagecheck/dist/CMZX-MassageRepair-v01.sha256
-          git commit -m "Add built MassageRepair v01 APK" || exit 0
-          git push origin HEAD:massagecheck-build-20260929
+          git add massagecheck/dist/CMZX-MassageRepair-v02.apk massagecheck/dist/CMZX-MassageRepair-v02.sha256
+          git commit -m "Add built MassageRepair v02 APK" || exit 0
+          git push origin HEAD:main

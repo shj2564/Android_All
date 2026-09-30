@@ -7,7 +7,7 @@ android {
         applicationId 'kr.song.peugeot.massagecheck'
         minSdk 21
         targetSdk 33
-        versionCode 1
-        versionName '0.1-repair'
+        versionCode 2
+        versionName '0.2-verify'
     }
 }
