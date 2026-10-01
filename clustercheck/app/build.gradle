@@ -8,7 +8,7 @@ android {
         applicationId 'kr.song.peugeot.clusterfinal'
         minSdk 21
         targetSdk 33
-        versionCode 100
-        versionName '1.0-final'
+        versionCode 101
+        versionName '1.1-final'
     }
 }
