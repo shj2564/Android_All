@@ -62,7 +62,7 @@ public final class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(18,29,44));
         scroll.addView(root);
 
-        TextView title=t("5008 계기판 PERSONAL 설정 · FINAL 1.0",24); root.addView(title);
+        TextView title=t("5008 계기판 PERSONAL 설정 · FINAL 1.1",24); root.addView(title);
         root.addView(t(
             "CMZXR62N-U1 / Raise PSA-RZ-15 전용\n" +
             "좌·우 PERSONAL 실차 확정 메뉴 1~6만 표시합니다.\n" +
@@ -152,7 +152,7 @@ public final class MainActivity extends Activity {
         ServiceConnection conn=null;
         boolean bound=false;
         try{
-            out.append("[CLUSTER_FINAL_1_0]\n");
+            out.append("[CLUSTER_FINAL_1_1]\n");
             out.append("시각: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z",Locale.US).format(new Date())).append('\n');
 
             PackageInfo pi=getPackageManager().getPackageInfo(Protocol.SERVICE_PACKAGE,0);
