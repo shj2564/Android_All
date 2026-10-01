@@ -82,14 +82,12 @@ public final class Protocol {
         }
     }
 
-    // LEFT mapping is intentionally not guessed until real-car verification.
     public static String leftLabel(int value) {
-        if (value < 0 || value > 8) return "선택 안 됨";
-        return value + " · RAW 시험값";
+        return rightLabel(value);
     }
 
     public static boolean isUnsupported(int value) {
-        return value == 7 || value == 8;
+        return value == 0 || value == 7 || value == 8;
     }
 
     public static String hex(byte[] data) {
