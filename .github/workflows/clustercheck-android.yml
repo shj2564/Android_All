@@ -3,7 +3,7 @@ name: Build ClusterCheck APK
 on:
   push:
     branches:
-      - clustercheck-build-20260927
+      - clusterfinal-build-20261001
     paths-ignore:
       - 'clustercheck/dist/**'
   pull_request:
@@ -42,13 +42,13 @@ jobs:
       - name: Prepare named APK
         run: |
           mkdir -p clustercheck/dist
-          cp clustercheck/app/build/outputs/apk/debug/app-debug.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk
-          sha256sum clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk | tee clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.sha256
+          cp clustercheck/app/build/outputs/apk/debug/app-debug.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.1.apk
+          sha256sum clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.1.apk | tee clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.1.sha256
       - name: Commit APK to build branch
         if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.0.sha256
-          git commit -m "Add built ClusterRestore FINAL v1.0 APK" || exit 0
+          git add clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.1.apk clustercheck/dist/CMZX-InstrumentClusterRestore-FINAL-v1.1.sha256
+          git commit -m "Add built ClusterRestore FINAL v1.1 APK" || exit 0
           git push origin HEAD:clustercheck-build-20260927
