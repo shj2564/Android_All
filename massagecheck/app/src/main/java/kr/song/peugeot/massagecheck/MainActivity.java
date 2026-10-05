@@ -20,66 +20,44 @@ public final class MainActivity extends Activity {
         CAN="com.reglink.services.canbox.ICANBoxService",
         HASH="8c7b9ee385fe2503dd592b6114436235a1e0bcefd8f6c80b6e9a3478b5d074d9",
         BOX="PSA-RZ-15-0128.212.06-HSE";
-    static final int MASSAGE=0x85, DRIVER=0x06, PASSENGER=0x07;
     final Handler ui=new Handler();
-    TextView status,log; Spinner dLevel,dType,pLevel,pType; Button dSend,pSend,dOff,dLow2,dHigh2,pOff,pLow2,pHigh2;
-    volatile boolean ready=false,busy=false,foreground=false;
+    TextView status,log;
+    Button checkButton, monitorButton, copyButton;
+    volatile boolean busy=false,foreground=false;
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         ScrollView sc=new ScrollView(this); LinearLayout root=new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL); int p=(int)(18*getResources().getDisplayMetrics().density);
-        root.setPadding(p,p,p,p); root.setBackgroundColor(Color.rgb(18,29,44)); sc.addView(root);
-        root.addView(t("5008 마사지 복구 · v0.2",24));
-        root.addView(t("CMZXR62N-U1 / Raise PSA-RZ-15 전용\n마사지 명령 전송 후 0x8F/0x4E 상태 조회로 차량 회신값을 검증합니다.",16));
-        Button check=new Button(this); check.setText("1. 차량 연결 및 현재 상태 확인"); root.addView(check);
-        check.setOnClickListener(v->check());
-        root.addView(t("운전석 마사지",20));
-        dLevel=levelSpinner(); root.addView(dLevel); dType=typeSpinner(); root.addView(dType);
-        dSend=new Button(this); dSend.setText("운전석 사용자값 적용"); root.addView(dSend);
-        dOff=button("운전석 OFF"); root.addView(dOff);
-        dLow2=button("운전석 LOW / TYPE 2"); root.addView(dLow2);
-        dHigh2=button("운전석 HIGH / TYPE 2"); root.addView(dHigh2);
-        root.addView(t("조수석 마사지",20));
-        pLevel=levelSpinner(); root.addView(pLevel); pType=typeSpinner(); root.addView(pType);
-        pSend=new Button(this); pSend.setText("조수석 사용자값 적용"); root.addView(pSend);
-        pOff=button("조수석 OFF"); root.addView(pOff);
-        pLow2=button("조수석 LOW / TYPE 2"); root.addView(pLow2);
-        pHigh2=button("조수석 HIGH / TYPE 2"); root.addView(pHigh2);
-        status=t("차량 연결 확인 대기",19); root.addView(status);
-        log=t("수정 포맷: 0x85 / 운전석 0x06 / 조수석 0x07 / 값=(강도<<4)|타입",14);
-        log.setTextIsSelectable(true); root.addView(log);
-        dSend.setOnClickListener(v->confirm(DRIVER)); pSend.setOnClickListener(v->confirm(PASSENGER));
-        dOff.setOnClickListener(v->quick(DRIVER,0,1));
-        dLow2.setOnClickListener(v->quick(DRIVER,1,2));
-        dHigh2.setOnClickListener(v->quick(DRIVER,3,2));
-        pOff.setOnClickListener(v->quick(PASSENGER,0,1));
-        pLow2.setOnClickListener(v->quick(PASSENGER,1,2));
-        pHigh2.setOnClickListener(v->quick(PASSENGER,3,2));
-        setContentView(sc); refresh();
+        root.setOrientation(LinearLayout.VERTICAL);
+        int p=(int)(18*getResources().getDisplayMetrics().density);
+        root.setPadding(p,p,p,p);root.setBackgroundColor(Color.rgb(18,29,44));sc.addView(root);
+        root.addView(t("5008 마사지 물리버튼 진단 · V03",24));
+        root.addView(t("읽기 전용 CAN 관찰: 차량에 어떤 명령도 보내지 않습니다.\n시동을 켠 상태에서 진행하세요.",16));
+        checkButton=button("1. 차량 조건 및 현재 캐시 확인");root.addView(checkButton);
+        monitorButton=button("2. 물리 버튼 18초 관찰 (송신 없음)");root.addView(monitorButton);
+        root.addView(t("시험 순서: 관찰 시작 → 처음 3초는 버튼을 누르지 않음 → 4~12초 사이 운전석 버튼 2회, 조수석 버튼 2회 → 끝날 때까지 대기",16));
+        status=t("대기 · 차량에 쓰기 명령 없음",19);root.addView(status);
+        log=t("[MASSAGE_DIAG_V03]\n물리버튼 입력 검증을 시작하세요.",14);log.setTextIsSelectable(true);root.addView(log);
+        copyButton=button("진단 결과 복사");root.addView(copyButton);
+        checkButton.setOnClickListener(v->execute(false));
+        monitorButton.setOnClickListener(v->execute(true));
+        copyButton.setOnClickListener(v->{
+            android.content.ClipboardManager cb=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+            if(cb!=null)cb.setPrimaryClip(ClipData.newPlainText("MASSAGE_DIAG_V03",log.getText()));
+            Toast.makeText(this,"진단 결과 복사",Toast.LENGTH_SHORT).show();
+        });
+        setContentView(sc);refresh();
     }
     Button button(String s){Button b=new Button(this);b.setText(s);return b;}
-    TextView t(String s,int z){ TextView v=new TextView(this);v.setText(s);v.setTextSize(z);v.setTextColor(Color.rgb(235,241,248));v.setPadding(0,8,0,10);return v; }
-    Spinner levelSpinner(){ Spinner s=new Spinner(this); s.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"OFF","LOW","MID","HIGH"})); return s; }
-    Spinner typeSpinner(){ Spinner s=new Spinner(this); s.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"TYPE 1","TYPE 2","TYPE 3","TYPE 4","TYPE 5"})); return s; }
-    int pack(int level,int type){ if(level<0||level>3||type<1||type>5)throw new IllegalArgumentException();return (level<<4)|type; }
-    byte[] payload(int sub,int level,int type){return new byte[]{(byte)sub,(byte)pack(level,type)};}
-    byte[] expected(int packetType,byte[] p){ byte[] f=new byte[p.length+4];f[0]=(byte)0xFD;f[1]=(byte)(p.length+3);f[2]=(byte)packetType;System.arraycopy(p,0,f,3,p.length);int sum=0;for(int i=1;i<f.length-1;i++)sum+=f[i]&255;f[f.length-1]=(byte)sum;return f; }
-    String hex(byte[] d){ if(d==null)return "기록 없음";StringBuilder s=new StringBuilder();for(byte x:d){if(s.length()>0)s.append(' ');s.append(String.format(Locale.US,"%02X",x&255));}return s.toString(); }
-
-    void confirm(final int sub){
-        if(!ready||busy||!foreground)return;
-        final Spinner ls=sub==DRIVER?dLevel:pLevel, ts=sub==DRIVER?dType:pType;
-        final int level=ls.getSelectedItemPosition(), type=ts.getSelectedItemPosition()+1;
-        final byte[] p=payload(sub,level,type);
-        new AlertDialog.Builder(this).setTitle(sub==DRIVER?"운전석 마사지 적용":"조수석 마사지 적용")
-            .setMessage("강도="+level+" / 타입="+type+"\n패킷 payload: "+hex(p)+"\n\n검증 후 1회만 전송합니다.")
-            .setNegativeButton("취소",null).setPositiveButton("전송",(d,w)->send(sub,level,type)).show();
+    TextView t(String s,int z){TextView v=new TextView(this);v.setText(s);v.setTextSize(z);
+        v.setTextColor(Color.rgb(235,241,248));v.setPadding(0,8,0,10);return v;}
+    String hex(byte[] d){return Rx.fmt(d);}
+    void execute(boolean monitor){
+        if(busy||!foreground)return;
+        busy=true;refresh();
+        status.setText(monitor?"물리버튼 관찰 중 · 18초":"차량 조건 확인 중");
+        new Thread(()->run(monitor),"MassageRxOnly").start();
     }
-    void check(){ if(busy||!foreground)return;busy=true;ready=false;refresh();status.setText("차량 조건 확인 중");new Thread(()->run(false,0,0,0),"MassageCheck").start(); }
-    void quick(int sub,int level,int type){ if(!ready||busy||!foreground)return;send(sub,level,type); }
-    void send(int sub,int level,int type){ if(busy||!ready||!foreground)return;busy=true;ready=false;refresh();status.setText("마사지 명령 전송 및 차량 회신 확인 중");new Thread(()->run(true,sub,level,type),"MassageSend").start(); }
-
     static final class B {
         final IBinder r; final String desc;
         B(IBinder x,String d)throws Exception{if(x==null||!d.equals(x.getInterfaceDescriptor()))throw new Exception("Binder 인터페이스 불일치");r=x;desc=d;}
@@ -90,75 +68,129 @@ public final class MainActivity extends Activity {
         boolean flag(int c)throws Exception{Parcel a=x(c,q());try{return a.readInt()!=0;}finally{a.recycle();}}
         String name(int c)throws Exception{Parcel a=x(c,q());try{return a.readString();}finally{a.recycle();}}
         byte[] last(int type)throws Exception{Parcel q=q();q.writeInt(type);Parcel a=x(8,q);try{if(a.readInt()==0)return null;a.readInt();return a.createByteArray();}finally{a.recycle();}}
-        byte[] encode(int type,byte[] p)throws Exception{Parcel q=q();q.writeInt(1);q.writeInt(type);q.writeByteArray(p);Parcel a=x(11,q);try{return a.createByteArray();}finally{a.recycle();}}
-        void write(int type,byte[] p)throws Exception{Parcel q=q(),a=Parcel.obtain();try{q.writeInt(1);q.writeInt(type);q.writeByteArray(p);if(!r.transact(4,q,a,0))throw new Exception("write 미지원");a.readException();}finally{q.recycle();a.recycle();}}
+        void observe(Rx cb,boolean on)throws Exception{
+            Parcel q=q(),a=Parcel.obtain();
+            try{
+                q.writeStrongBinder(cb);
+                if(!r.transact(on?1:2,q,a,0))throw new Exception("CANBox 수신 콜백 미지원");
+                a.readException();
+            }finally{q.recycle();a.recycle();}
+        }
     }
 
-    void run(boolean doSend,int sub,int level,int type){
-        StringBuilder out=new StringBuilder();ServiceConnection conn=null;boolean bound=false;
-        try{
-            out.append("[MASSAGE_REPAIR_V02]\n시각: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z",Locale.US).format(new Date())).append('\n');
-            PackageInfo pi=getPackageManager().getPackageInfo(PKG,0);String h=sha256(pi.applicationInfo.sourceDir);
-            if(pi.versionCode!=26012914||!"260129-1424".equals(pi.versionName)||!HASH.equals(h))throw new Exception("기준 ReglinkService와 다릅니다.");
-            final CountDownLatch latch=new CountDownLatch(1);final IBinder[] hold=new IBinder[1];
-            conn=new ServiceConnection(){public void onServiceConnected(ComponentName n,IBinder b){hold[0]=b;latch.countDown();}public void onServiceDisconnected(ComponentName n){latch.countDown();}};
-            Intent i=new Intent(ACTION);i.setComponent(new ComponentName(PKG,CLS));bound=bindService(i,conn,0);
-            if(!bound||!latch.await(8,TimeUnit.SECONDS)||hold[0]==null)throw new Exception("차량 서비스 연결 실패");
-            B droid=new B(hold[0],DROID);Map<String,String> f=droid.info();
-            if(Build.VERSION.SDK_INT!=27||!"mt6765".equals(Build.HARDWARE)||!"psa_5008_2014_2019".equals(f.get("model"))||!"peugeot".equals(f.get("manufacturer"))||!"psa".equals(f.get("modelPlatform"))||!"generic".equals(f.get("configuration"))||!"CMZXR62N-U1".equals(f.get("productCode"))||!"95.08@260715".equals(f.get("mcuVersion")))throw new Exception("확인된 실차 조건과 다릅니다.");
-            IBinder cb=droid.can();B box=new B(cb,CAN);
-            String canType=box.name(6),decoder=box.name(10);boolean connected=box.flag(5),suspended=box.flag(14);
-            if(!"raise".equals(canType)||!"raise-psa".equals(decoder)||!connected||suspended)throw new Exception("Raise PSA CANBox 상태 불일치");
-            byte[] state=box.last(0x4e);
-            out.append("service=").append(pi.versionName).append(" / ").append(pi.versionCode).append("\nCAN=").append(canType).append(" / ").append(decoder).append("\n0x4E cache=").append(hex(state)).append('\n');
-            if(state!=null&&state.length>=7){
-                int dp=state[5]&255,pp=state[6]&255;
-                out.append("현재 운전석: 강도 ").append((dp&0x30)>>4).append(" / 타입 ").append(dp&0x0f).append('\n');
-                out.append("현재 조수석: 강도 ").append((pp&0x30)>>4).append(" / 타입 ").append(pp&0x0f).append('\n');
-            }
-            if(doSend){
-                byte[] p=payload(sub,level,type), exp=expected(MASSAGE,p), enc=box.encode(MASSAGE,p);
-                if(!Arrays.equals(exp,enc))throw new Exception("마사지 RegLink 인코더와 독립 계산 불일치");
-                out.append("요청 좌석=").append(sub==DRIVER?"운전석":"조수석").append(" / 강도=").append(level).append(" / 타입=").append(type).append('\n');
-                out.append("마사지 프레임=").append(hex(exp)).append('\n');
-                box.write(MASSAGE,p);
-
-                byte[] req=new byte[]{(byte)0x4E}, reqExp=expected(0x8F,req), reqEnc=box.encode(0x8F,req);
-                if(!Arrays.equals(reqExp,reqEnc))throw new Exception("0x4E 조회 RegLink 인코더와 독립 계산 불일치");
-                SystemClock.sleep(180);
-                box.write(0x8F,req);
-                out.append("상태조회 프레임=").append(hex(reqExp)).append('\n');
-
-                byte[] fresh=null;
-                for(int n=0;n<10;n++){
-                    SystemClock.sleep(150);
-                    fresh=box.last(0x4E);
-                    if(fresh!=null&&fresh.length>=7){
-                        int raw=(sub==DRIVER?fresh[5]:fresh[6])&255;
-                        if(raw==pack(level,type))break;
+    static final class Rx extends Binder {
+        static final String DESC="com.reglink.services.canbox.ICANBoxCallback";
+        private long started=0;
+        private boolean closed=false;
+        private int count=0, massageCount=0;
+        private byte[] lastMassage=null;
+        private final ArrayList<String> events=new ArrayList<>();
+        private final Map<Integer,byte[]> lastForType=new HashMap<>();
+        Rx(){attachInterface(null,DESC);}
+        synchronized void begin(){started=SystemClock.elapsedRealtime();count=0;massageCount=0;
+            lastMassage=null;lastForType.clear();events.clear();}
+        synchronized void close(){closed=true;}
+        synchronized int count(){return count;}
+        synchronized int massageCount(){return massageCount;}
+        synchronized byte[] massage(){return lastMassage==null?null:lastMassage.clone();}
+        synchronized List<String> events(){return new ArrayList<>(events);}
+        @Override protected boolean onTransact(int code,Parcel q,Parcel r,int flags)throws RemoteException{
+            if(code==INTERFACE_TRANSACTION){if(r!=null)r.writeString(DESC);return true;}
+            if(code!=1&&code!=2)return super.onTransact(code,q,r,flags);
+            q.enforceInterface(DESC);
+            if(code==1){
+                if(q.readInt()!=0){
+                    int type=q.readInt();byte[] packet=q.createByteArray();
+                    if(packet!=null && packet.length<=1024){
+                        synchronized(this){
+                            if(!closed){
+                                count++;
+                                if(type==0x4e){massageCount++;lastMassage=packet.clone();}
+                                byte[] last=lastForType.get(type);
+                                boolean changed=!Arrays.equals(last,packet);
+                                if(changed) {
+                                    lastForType.put(type,packet.clone());
+                                    if(events.size()<110)events.add("+"+(SystemClock.elapsedRealtime()-started)+
+                                        "ms: 0x"+String.format(Locale.US,"%02X",type&255)+" "+fmt(packet));
+                                }
+                            }
+                        }
                     }
                 }
-                out.append("0x4E 회신=").append(hex(fresh)).append('\n');
-                if(fresh!=null&&fresh.length>=7){
-                    int dp=fresh[5]&255, pp=fresh[6]&255;
-                    int dl=(dp&0x30)>>4, dt=dp&0x0f, pl=(pp&0x30)>>4, pt=pp&0x0f;
-                    out.append("회신 운전석: 강도 ").append(dl).append(" / 타입 ").append(dt).append('\n');
-                    out.append("회신 조수석: 강도 ").append(pl).append(" / 타입 ").append(pt).append('\n');
-                    int raw=(sub==DRIVER?dp:pp);
-                    if(raw==pack(level,type)) out.append("검증 결과=MATCH · 보낸 값과 차량 회신 일치");
-                    else out.append("검증 결과=DIFF · 보낸 값과 현재 회신 불일치");
-                }else{
-                    out.append("검증 결과=NO_STATE · 0x4E 유효 회신 미확보");
-                }
-            }else out.append("차량 조건 일치 · 송신 없음");
-            final String result=out.toString();ui.post(()->{busy=false;ready=true;status.setText("차량 조건 일치 · 마사지 시험 가능");log.setText(result);refresh();});
-        }catch(final Exception e){
+            } else {q.readInt();}
+            if(r!=null)r.writeNoException();
+            return true;
+        }
+        static String fmt(byte[] data){
+            if(data==null)return "없음";
+            StringBuilder out=new StringBuilder();
+            for(byte b:data){if(out.length()>0)out.append(' ');out.append(String.format(Locale.US,"%02X",b&255));}
+            return out.toString();
+        }
+    }
+
+    void run(boolean monitor){
+        StringBuilder out=new StringBuilder();
+        ServiceConnection conn=null;boolean bound=false,registered=false;
+        B box=null;Rx rx=null;
+        try {
+            out.append("[MASSAGE_DIAG_V03]\n시각: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z",Locale.US).format(new Date())).append('\n');
+            out.append("관찰모드=").append(monitor?"물리버튼 18초":"조건/캐시 확인").append(" · CAN 송신=0회\n");
+            PackageInfo pi=getPackageManager().getPackageInfo(PKG,0);
+            String h=sha256(pi.applicationInfo.sourceDir);
+            if(pi.versionCode!=26012914||!"260129-1424".equals(pi.versionName)||!HASH.equals(h))
+                throw new Exception("기준 ReglinkService 버전 또는 SHA 불일치");
+            final CountDownLatch latch=new CountDownLatch(1);final IBinder[] hold=new IBinder[1];
+            conn=new ServiceConnection(){public void onServiceConnected(ComponentName n,IBinder b){hold[0]=b;latch.countDown();}
+                public void onServiceDisconnected(ComponentName n){latch.countDown();}};
+            Intent i=new Intent(ACTION);i.setComponent(new ComponentName(PKG,CLS));
+            bound=bindService(i,conn,0);
+            if(!bound||!latch.await(8,TimeUnit.SECONDS)||hold[0]==null)throw new Exception("차량 서비스 연결 실패");
+            B droid=new B(hold[0],DROID);Map<String,String> f=droid.info();
+            if(Build.VERSION.SDK_INT!=27||!"mt6765".equals(Build.HARDWARE)||
+                !"psa_5008_2014_2019".equals(f.get("model"))||
+                !"peugeot".equals(f.get("manufacturer"))||
+                !"psa".equals(f.get("modelPlatform"))||
+                !"generic".equals(f.get("configuration"))||
+                !"CMZXR62N-U1".equals(f.get("productCode"))||
+                !"95.08@260715".equals(f.get("mcuVersion")))
+                throw new Exception("차량 프로필과 분석 기준 불일치");
+            box=new B(droid.can(),CAN);
+            String canType=box.name(6),decoder=box.name(10);
+            boolean connected=box.flag(5),suspended=box.flag(14);
+            if(!"raise".equals(canType)||!"raise-psa".equals(decoder)||!connected||suspended)
+                throw new Exception("Raise PSA CAN 연결/상태 불일치");
+            out.append("service=").append(pi.versionName).append(" / ").append(pi.versionCode)
+                .append("\nCAN=").append(canType).append(" / ").append(decoder).append('\n');
+            byte[] old=box.last(0x4e);
+            out.append("이전 0x4E 캐시=").append(hex(old)).append(" (수신 시각 없음)\n");
+            if(monitor){
+                rx=new Rx();rx.begin();box.observe(rx,true);registered=true;
+                // CAN write()/rawWrite()/request not used; physical-button input is observed passively.
+                for(int n=0;n<90;n++)SystemClock.sleep(200);
+                byte[] current=box.last(0x4e);
+                out.append("관찰 후 0x4E 캐시=").append(hex(current)).append('\n');
+                out.append("CAN 패킷 콜백 전체 수=").append(rx.count())
+                    .append(" / 0x4E 수신 수=").append(rx.massageCount()).append('\n');
+                out.append("마지막 실제 수신 0x4E=").append(hex(rx.massage())).append('\n');
+                out.append("새/변경된 프레임 (최대 110개):\n");
+                for(String event:rx.events())out.append(event).append('\n');
+                out.append("참고: 콜백 미수신은 헤드유닛 관측점의 결과이며 물리버튼 전기적 고장을 의미하지 않습니다.\n");
+            } else out.append("조건 확인 성공. 물리버튼 관찰을 실행하세요.");
+            final String result=out.toString();
+            ui.post(()->{busy=false;status.setText("진단 완료 · 차량 제어 없음");log.setText(result);refresh();});
+        }catch(Exception e){
             out.append("\n중단: ").append(e.getClass().getSimpleName()).append(": ").append(e.getMessage());
-            final String result=out.toString();ui.post(()->{busy=false;ready=false;status.setText("조건 불일치 또는 연결 실패");log.setText(result);refresh();});
-        }finally{if(bound&&conn!=null)try{unbindService(conn);}catch(Exception ignored){}}
+            final String result=out.toString();
+            ui.post(()->{busy=false;status.setText("조건 불일치 또는 연결 실패");log.setText(result);refresh();});
+        }finally{
+            if(rx!=null)rx.close();
+            if(registered&&box!=null&&rx!=null)try{box.observe(rx,false);}catch(Exception ignored){}
+            if(bound&&conn!=null)try{unbindService(conn);}catch(Exception ignored){}
+        }
     }
     static String sha256(String path)throws Exception{MessageDigest d=MessageDigest.getInstance("SHA-256");FileInputStream in=new FileInputStream(path);try{byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)d.update(b,0,n);}finally{in.close();}StringBuilder s=new StringBuilder();for(byte b:d.digest())s.append(String.format(Locale.US,"%02x",b&255));return s.toString();}
-    void refresh(){boolean e=foreground&&ready&&!busy;dSend.setEnabled(e);pSend.setEnabled(e);dLevel.setEnabled(e);dType.setEnabled(e);pLevel.setEnabled(e);pType.setEnabled(e);dOff.setEnabled(e);dLow2.setEnabled(e);dHigh2.setEnabled(e);pOff.setEnabled(e);pLow2.setEnabled(e);pHigh2.setEnabled(e);}
+    void refresh(){boolean e=foreground&&!busy;checkButton.setEnabled(e);monitorButton.setEnabled(e);}
     @Override public void onResume(){super.onResume();foreground=true;refresh();}
     @Override public void onPause(){foreground=false;refresh();super.onPause();}
 }

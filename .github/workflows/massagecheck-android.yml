@@ -2,10 +2,11 @@ name: Build MassageRepair APK
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - 'massagecheck/dist/**'
+    branches: [main]
+    paths:
+      - 'massagecheck/**'
+      - '!massagecheck/dist/**'
+      - '.github/workflows/massagecheck-android.yml'
   workflow_dispatch:
 
 permissions:
@@ -31,26 +32,36 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build APK
+      - name: Build unsigned release APK
         working-directory: massagecheck
-        run: gradle :app:assembleDebug --stacktrace
-      - name: Prepare APK
+        run: gradle :app:assembleRelease --stacktrace
+      - name: Sign stable-key APK and verify
+        env:
+          KEY_B64: ${{ secrets.ANDROID_ALL_MASSAGE_SIGNING_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_ALL_MASSAGE_SIGNING_PASS }}
         run: |
+          set -euo pipefail
+          test -n "$KEY_B64" && test -n "$KS_PASS"
+          echo "$KEY_B64" | base64 -d > "$RUNNER_TEMP/massage.p12"
+          chmod 600 "$RUNNER_TEMP/massage.p12"
           mkdir -p massagecheck/dist
-          cp massagecheck/app/build/outputs/apk/debug/app-debug.apk massagecheck/dist/CMZX-MassageRepair-v02.apk
-          sha256sum massagecheck/dist/CMZX-MassageRepair-v02.apk | tee massagecheck/dist/CMZX-MassageRepair-v02.sha256
+          BTOOLS="$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          "$BTOOLS/zipalign" -f 4 massagecheck/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/massage-aligned.apk"
+          "$BTOOLS/apksigner" sign --min-sdk-version 21 --v1-signing-enabled true --v2-signing-enabled true --ks "$RUNNER_TEMP/massage.p12" --ks-key-alias massage --ks-pass env:KS_PASS --key-pass env:KS_PASS --out massagecheck/dist/CMZX-MassageRepair-v03.apk "$RUNNER_TEMP/massage-aligned.apk"
+          "$BTOOLS/apksigner" verify --verbose --print-certs massagecheck/dist/CMZX-MassageRepair-v03.apk
+          sha256sum massagecheck/dist/CMZX-MassageRepair-v03.apk | tee massagecheck/dist/CMZX-MassageRepair-v03.sha256
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CMZX-MassageRepair-v02
+          name: CMZX-MassageRepair-v03
           path: |
-            massagecheck/dist/CMZX-MassageRepair-v02.apk
-            massagecheck/dist/CMZX-MassageRepair-v02.sha256
+            massagecheck/dist/CMZX-MassageRepair-v03.apk
+            massagecheck/dist/CMZX-MassageRepair-v03.sha256
           if-no-files-found: error
-      - name: Commit APK
+      - name: Commit signed APK
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add massagecheck/dist/CMZX-MassageRepair-v02.apk massagecheck/dist/CMZX-MassageRepair-v02.sha256
-          git commit -m "Add built MassageRepair v02 APK" || exit 0
+          git add massagecheck/dist/CMZX-MassageRepair-v03.apk massagecheck/dist/CMZX-MassageRepair-v03.sha256
+          git commit -m "Add stable-signed MassageRepair v03 APK" || exit 0
           git push origin HEAD:main

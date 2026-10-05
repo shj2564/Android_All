@@ -22,3 +22,10 @@ More detail in MASSAGE_V02_REALCAR_ANALYSIS_20261006.md.
 
 ## Status
 Physical-button fault causality unresolved; do not deploy further massage control changes until LED and true receive-state results are known.
+
+## Source investigation (Raise PSA 26090708)
+- Decrypted official model_raise_psa.js examined: 0x85 / [0x06 or 0x07, setting] used for touchscreen seat control, and 0x8F 0x4E to request status.
+- 0x4E status bytes [5,6] show driver and passenger settings. The source level-setting UI pack (type << 4)+level disagrees with its status decode (level<<4)|type; this alone does not establish that OEM physical-button operation uses that touchscreen code.
+- Physical side-button green indicator does not illuminate after installing Android All-in-One; the factory installation did work. Therefore physical button integration/BSI or seat-unit powering/wake state should be tested independently from touchscreen command encoding.
+- V03 should diagnose physical-button input without CAN writes, using ICANBoxService.registerCallback to passively observe an 18-second baseline/press sequence. Lack of a 0x4E packet proves nothing about signals on seat-local CAN if the head unit CAN box does not route them.
+- Do not transmit massage set/read-request commands or automatically emulate button input during this diagnosis.
