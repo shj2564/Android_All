@@ -1,0 +1,13 @@
+# 마사지 복구 실차 진단 (2026-10-06 KST)
+- V01: 실차 마사지 동작 확인 (유저 증언; 전달 성공 여부와 강도 매핑은 분리).
+- V02 실차 사진 시각: 08:34:39+09:00.
+- SERVICE: 260129-1424 / 26012914, CAN raise / raise-psa 정상.
+- 명령: 조수석 강도 3 / 타입 1, payload [07,31]; 프레임 FD 05 85 07 31 C2.
+- 상태조회: FD 04 8F 4E E1.
+- 이전 캐시: 00 06 02 05 00 11 00 (운전석1/1, 조수석0/0).
+- V02 명령 뒤 표시: 동일 00 06 02 05 00 11 00, DIFF 출력.
+- **주의**: V02는 ICANBoxService.getLastCANBoxPkt(0x4E)로만 읽었고 수신 시각/이벤트 증거가 없었음. 이 출력만으로 차량이 응답했거나 명령을 거부했다고 단정할 수 없음.
+- V03은 기존 미러 하향 성공 코드의 ICANBoxService.registerCallback/unregisterCallback Binder transaction(1/2)을 재사용, ICANBoxCallback packet event를 5초 수집.
+- V03 판정은 FRESH_MATCH/FRESH_DIFF/NO_FRESH_RX. 콜백에서 새 패킷이 왔다고 해도 제어명령 ACK가 아님. 실차 동작은 사용자 확인 필요.
+- 테스트용 v03 package ID는 v02 디버그 서명 충돌 방지 차원에서 분리. 지속적인 업그레이드를 위해 GitHub Actions Secrets 기반 안정적 서명 인증서를 사용.
+- 자동차 제어 쓰기는 사용자가 버튼을 눌렀을 때 한 번만, 상태조회 명령은 한 번만 발행. 자동 재전송 없음.
