@@ -1,5 +1,5 @@
 CMZX65-U1 AASink physical FM bridge
-Class: com.google.android.projection.protocol.RadioStub
+Classes: RadioStub + generated inner classes
 Target: yellow.android.aasink_2025091316.apk
-Radio service: reglink.droid -> IRadioService
+Merge target: v01 classes4.dex
 Build: GitHub Actions / D8 min-api 17
