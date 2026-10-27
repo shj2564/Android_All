@@ -1,6 +1,7 @@
 package com.google.android.projection.protocol;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.SystemClock;
@@ -34,12 +35,14 @@ public final class RadioStub extends Radio {
     private static final String RADIO_DESC = "com.reglink.services.IRadioService";
     private static final String MEDIA_DESC = "com.reglink.services.IMediaService";
     private static final String MEDIA_HUB_DESC = "com.reglink.services.IMediaHubService";
+    private static final String PREF_DESC = "com.reglink.services.IPreferenceService";
 
     private IRadioEndpoint endpoint;
     private IBinder droid;
     private IBinder radio;
     private IBinder media;
     private IBinder mediaHub;
+    private IBinder preference;
     private boolean sourceEnabled;
     private boolean muted;
     private int currentHz = FALLBACK_HZ;
@@ -216,17 +219,41 @@ public final class RadioStub extends Radio {
         return new RadioStationInfo(FM_TYPE, currentHz, 0);
     }
 
+    private int[] favoriteHz() {
+        ArrayList<Integer> raw = getFmFavorites();
+        if (raw == null || raw.isEmpty()) return PRESETS_HZ;
+        int[] out = new int[raw.size()];
+        int n = 0;
+        for (Integer value : raw) {
+            if (value == null) continue;
+            int v = value.intValue();
+            int hz = v >= FM_MIN_HZ ? v : v * 10000;
+            if (hz >= FM_MIN_HZ && hz <= FM_MAX_HZ) out[n++] = hz;
+        }
+        if (n == 0) return PRESETS_HZ;
+        if (n == out.length) return out;
+        int[] trimmed = new int[n];
+        System.arraycopy(out, 0, trimmed, 0, n);
+        return trimmed;
+    }
+
     private List programStations() {
-        ArrayList list = new ArrayList(PRESETS_HZ.length);
-        for (int hz : PRESETS_HZ) list.add(new RadioStationInfo(FM_TYPE, hz, 0));
+        int[] hzList = favoriteHz();
+        ArrayList list = new ArrayList(hzList.length);
+        for (int hz : hzList) list.add(new RadioStationInfo(FM_TYPE, hz, 0));
         return list;
     }
 
     private List presetLists() {
-        ArrayList presets = new ArrayList(PRESETS_HZ.length);
-        for (int hz : PRESETS_HZ) presets.add(new StationPreset(FM_TYPE, hz, 0));
+        int[] hzList = favoriteHz();
+        ArrayList presets = new ArrayList(hzList.length);
+        for (int hz : hzList) presets.add(new StationPreset(FM_TYPE, hz, 0));
+        // Constructor order verified from AASink bytecode:
+        // (String name, List restrictedStationTypes, List presets)
         StationPresetList list = new StationPresetList(
-                "즐겨찾기", presets, Collections.singletonList(Integer.valueOf(FM_TYPE)));
+                "즐겨찾기",
+                Collections.singletonList(Integer.valueOf(FM_TYPE)),
+                presets);
         return Collections.singletonList(list);
     }
 
@@ -327,6 +354,41 @@ public final class RadioStub extends Radio {
     private IBinder getMediaHub() {
         if (mediaHub == null || !mediaHub.pingBinder()) mediaHub = getReglinkService("MediaHub");
         return mediaHub;
+    }
+
+    private IBinder getPreference() {
+        if (preference == null || !preference.pingBinder()) {
+            preference = getReglinkService("AppPreference");
+        }
+        return preference;
+    }
+
+    private ArrayList<Integer> getFmFavorites() {
+        IBinder b = getPreference();
+        if (b == null) return null;
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(PREF_DESC);
+            data.writeString("radio");
+            if (!b.transact(10, data, reply, 0)) return null; // getBundle(String)
+            reply.readException();
+            if (reply.readInt() == 0) return null;
+            Bundle bundle = Bundle.CREATOR.createFromParcel(reply);
+            ArrayList<Integer> fav = bundle.getIntegerArrayList("fm_fav");
+            if (fav != null && !fav.isEmpty()) return fav;
+            int[] list = bundle.getIntArray("fm_list");
+            if (list == null || list.length == 0) return null;
+            ArrayList<Integer> out = new ArrayList<Integer>(list.length);
+            for (int v : list) if (v > 0) out.add(Integer.valueOf(v));
+            return out;
+        } catch (Throwable t) {
+            Log.w(TAG, "getFmFavorites", t);
+            return null;
+        } finally {
+            reply.recycle();
+            data.recycle();
+        }
     }
 
     private boolean radioPower(boolean on) {
