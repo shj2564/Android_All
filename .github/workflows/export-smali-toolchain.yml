@@ -1,0 +1,39 @@
+name: Export smali toolchain
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - aasink-radio-final-build-20261027
+    paths:
+      - '.github/workflows/export-smali-toolchain.yml'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Download smali and baksmali dependencies
+        run: |
+          mkdir -p toolchain
+          cat > /tmp/pom.xml <<'POM'
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>local</groupId><artifactId>smali-tools</artifactId><version>1</version>
+            <dependencies>
+              <dependency><groupId>org.smali</groupId><artifactId>smali</artifactId><version>2.5.2</version></dependency>
+              <dependency><groupId>org.smali</groupId><artifactId>baksmali</artifactId><version>2.5.2</version></dependency>
+            </dependencies>
+          </project>
+          POM
+          mvn -q -f /tmp/pom.xml dependency:copy-dependencies -DoutputDirectory="$PWD/toolchain"
+          ls -lh toolchain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smali-toolchain-2.5.2
+          path: toolchain/
+          if-no-files-found: error
