@@ -117,7 +117,8 @@ public final class ReglinkRadioBridge {
         }
     }
 
-    public static void mute(boolean muted) {
+    public static void mute(int radioId, boolean muted) {
+        if (radioId != 2) return;
         try {
             if (muted) power(false); else activate();
         } catch (Throwable t) {
@@ -125,7 +126,8 @@ public final class ReglinkRadioBridge {
         }
     }
 
-    public static void tune(int channelHz) {
+    public static void tune(int radioId, int channelHz) {
+        if (radioId != 2) return;
         try {
             activate();
             IBinder b = reglink("Radio");
@@ -146,7 +148,8 @@ public final class ReglinkRadioBridge {
         }
     }
 
-    public static void seek(boolean up) {
+    public static void seek(int radioId, boolean up) {
+        if (radioId != 2) return;
         try {
             activate();
             radioVoid(up ? 10 : 11);
@@ -155,7 +158,8 @@ public final class ReglinkRadioBridge {
         }
     }
 
-    public static void step(boolean up) {
+    public static void step(int radioId, boolean up) {
+        if (radioId != 2) return;
         try {
             activate();
             radioVoid(up ? 8 : 9);
@@ -164,7 +168,8 @@ public final class ReglinkRadioBridge {
         }
     }
 
-    public static void scan(boolean start) {
+    public static void scan(int radioId, boolean start) {
+        if (radioId != 2) return;
         try {
             activate();
             radioVoid(start ? 12 : 13);
