@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
         String h=host.getText().toString().trim();status.setText("Wi-Fi 라우팅 확인 중...");
         io.execute(()->{
             try {
-                String body=RelayClient.health(h);
+                String body=RelayClient.health(this,h);
                 show("올인원 직접 접속 성공 ✅\n"+body);
             }catch(Exception e){show("올인원 직접 접속 실패: "+e.getMessage()+
                     "\n올인원에 표시된 Wi-Fi IP를 확인하세요.\n"+
