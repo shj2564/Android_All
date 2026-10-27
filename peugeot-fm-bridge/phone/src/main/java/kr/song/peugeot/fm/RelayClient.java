@@ -17,14 +17,14 @@ final class RelayClient {
     }
     static String pair(Context c,String enteredHost,String code)throws Exception{
         String server=normalize(enteredHost);
-        JSONObject out=post(server+"/v1/pair","",new JSONObject().put("pin",code));
+        JSONObject out=post(c,server+"/v1/pair","",new JSONObject().put("pin",code));
         String token=out.getString("token");
         ConfigStore.save(c,server,token);
         return token;
     }
-    static String health(String enteredHost)throws Exception{
+    static String health(Context c,String enteredHost)throws Exception{
         String s=normalize(enteredHost);
-        HttpURLConnection h=PinnedHttps.open(s+"/health");
+        HttpURLConnection h=PinnedHttps.open(c,s+"/health");
         h.setConnectTimeout(2000);h.setReadTimeout(3000);h.setRequestMethod("GET");
         int rc=h.getResponseCode();
         String reply=read(rc<300?h.getInputStream():h.getErrorStream());
@@ -32,7 +32,7 @@ final class RelayClient {
         return reply;
     }
     static JSONObject status(Context c)throws Exception {
-        HttpURLConnection h=PinnedHttps.open(ConfigStore.server(c)+"/v1/fm/status");
+        HttpURLConnection h=PinnedHttps.open(c,ConfigStore.server(c)+"/v1/fm/status");
         h.setConnectTimeout(3000);h.setReadTimeout(4000);h.setRequestMethod("GET");
         h.setRequestProperty("X-FM-Token",ConfigStore.token(c));
         int code=h.getResponseCode();
@@ -44,10 +44,10 @@ final class RelayClient {
         if(!ConfigStore.paired(c))throw new IllegalStateException("먼저 페어링 필요");
         JSONObject body=new JSONObject().put("action",action);
         if(freq!=null)body.put("freq",freq);
-        return post(ConfigStore.server(c)+"/v1/fm/command",ConfigStore.token(c),body);
+        return post(c,ConfigStore.server(c)+"/v1/fm/command",ConfigStore.token(c),body);
     }
-    private static JSONObject post(String path,String token,JSONObject body)throws Exception{
-        HttpURLConnection h=PinnedHttps.open(path);
+    private static JSONObject post(Context c,String path,String token,JSONObject body)throws Exception{
+        HttpURLConnection h=PinnedHttps.open(c,path);
         h.setConnectTimeout(3000);h.setReadTimeout(7000);h.setRequestMethod("POST");
         h.setDoOutput(true);h.setRequestProperty("Content-Type","application/json");
         if(!token.isEmpty())h.setRequestProperty("X-FM-Token",token);
