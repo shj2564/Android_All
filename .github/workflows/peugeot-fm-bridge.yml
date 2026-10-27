@@ -44,10 +44,15 @@ jobs:
         with:
           name: peugeot-fm-local-direct
           path: peugeot-fm-bridge/dist/
-      - name: Commit APKs
+      - name: Commit APKs from current branch only
         run: |
+          CURRENT=$(git ls-remote origin refs/heads/aa-peugeot-fm-local-direct-20261027 | cut -f1)
+          if [ "$CURRENT" != "$GITHUB_SHA" ]; then
+            echo "Skipping stale build; a newer source commit exists."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add peugeot-fm-bridge/dist
-          git commit -m "Build Peugeot FM Android Auto bridge FINAL" || exit 0
+          git commit -m "Build Peugeot FM Local DIRECT APKs" || exit 0
           git push origin HEAD:aa-peugeot-fm-local-direct-20261027
