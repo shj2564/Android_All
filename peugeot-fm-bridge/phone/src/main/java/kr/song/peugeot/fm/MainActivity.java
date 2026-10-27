@@ -38,6 +38,10 @@ public class MainActivity extends Activity {
         Button probe=new Button(this);probe.setText("① Wi-Fi 연결 테스트");root.addView(probe);
         Button connect=new Button(this);connect.setText("② 올인원 페어링");root.addView(connect);
         Button diagnostics=new Button(this);diagnostics.setText("③ FM Binder 상태 확인");root.addView(diagnostics);
+        Button tune=new Button(this);tune.setText("④ 실제 FM 95.7MHz 동작 확인 (정차 중)");root.addView(tune);
+        Button seek=new Button(this);seek.setText("⑤ FM Seek + (정차 중)");root.addView(seek);
+        tune.setOnClickListener(v->testRadio("tune",9570));
+        seek.setOnClickListener(v->testRadio("seek_up",null));
         status=new TextView(this);status.setTextSize(16);
         status.setPadding(0,22,0,0);root.addView(status);
 
@@ -76,6 +80,16 @@ public class MainActivity extends Activity {
                 JSONObject s=RelayClient.status(this);
                 show("직접 연결 성공 ✅\n"+s.toString(2));
             }catch(Exception e){show("조회 실패: "+e.getMessage());}
+        });
+    }
+    private void testRadio(String action,Integer freq){
+        status.setText("실제 FM 명령 확인 중...");
+        io.execute(()->{
+            try{
+                JSONObject result=RelayClient.command(this,action,freq);
+                show("실제 튜너 명령 응답:\n"+result.toString(2)
+                        +"\n※ 동작 후 CMZX 순정 라디오 주파수와 소리도 확인하세요.");
+            }catch(Exception e){show("FM 명령 실패: "+e.getMessage());}
         });
     }
     private void show(String s){runOnUiThread(()->status.setText(s));}
