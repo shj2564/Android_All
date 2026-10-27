@@ -70,7 +70,10 @@ public class FmMediaService extends MediaBrowserServiceCompat {
     private void send(String action,Integer freq,String title) {
         setState(PlaybackStateCompat.STATE_BUFFERING,title);
         io.execute(() -> {
-            boolean ok=RelayClient.command(this,action,freq);
+            boolean ok=false;
+            try { org.json.JSONObject reply=RelayClient.command(this,action,freq);
+                  ok=reply.optBoolean("ok");
+            } catch(Exception e) { android.util.Log.w("PeugeotFM", "local bridge command failed", e); }
             session.setMetadata(new MediaMetadataCompat.Builder()
                     .putString(MediaMetadataCompat.METADATA_KEY_TITLE,title)
                     .putString(MediaMetadataCompat.METADATA_KEY_ARTIST,"Peugeot 5008 GT · 실제 FM 튜너").build());
@@ -83,7 +86,7 @@ public class FmMediaService extends MediaBrowserServiceCompat {
                 PlaybackStateCompat.ACTION_SKIP_TO_NEXT|PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS|
                 PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID;
         PlaybackStateCompat.Builder b=new PlaybackStateCompat.Builder().setActions(actions).setState(state,0,1f);
-        if (state==PlaybackStateCompat.STATE_ERROR) b.setErrorMessage("FM 브리지 연결 실패");
+        if (state==PlaybackStateCompat.STATE_ERROR) b.setErrorMessage("CMZX 로컬 FM 연결/권한 실패");
         session.setPlaybackState(b.build());
     }
     @Override public void onDestroy() { session.release(); io.shutdownNow(); super.onDestroy(); }
