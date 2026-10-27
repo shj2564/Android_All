@@ -1,0 +1,23 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'kr.song.peugeot.fm'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'kr.song.peugeot.fm'
+        minSdk 28
+        targetSdk 35
+        versionCode 100
+        versionName '1.0-final'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.media:media:1.7.0'
+}
