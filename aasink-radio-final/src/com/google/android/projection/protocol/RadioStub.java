@@ -2,7 +2,9 @@ package com.google.android.projection.protocol;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Parcel;
 import android.os.SystemClock;
 import android.util.Log;
@@ -46,16 +48,37 @@ public final class RadioStub extends Radio {
     private boolean sourceEnabled;
     private boolean muted;
     private int currentHz = FALLBACK_HZ;
+    private volatile int[] cachedPresetsHz = PRESETS_HZ;
+    private final Handler presetHandler;
+    private final Runnable presetRunnable = new Runnable() {
+        @Override public void run() {
+            try {
+                refreshFavoriteCache();
+                if (endpoint != null) {
+                    endpoint.sendStationPresetsResponse(presetLists(cachedPresetsHz));
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "delayed station presets", t);
+            } finally {
+                presetHandler.postDelayed(this, 10000L);
+            }
+        }
+    };
 
     public RadioStub() {
         super();
+        presetHandler = new Handler(Looper.getMainLooper());
         refreshFrequency();
+        // Match the stock AASink RadioStub: station presets are not pushed
+        // during endpoint attachment. They begin after a 10-second delay.
+        presetHandler.postDelayed(presetRunnable, 10000L);
     }
 
     @Override
     public void setRadioEndpoint(IRadioEndpoint ep) {
+        // Stock behavior: only retain the endpoint here. Sending data during
+        // projection initialization can terminate AASink.
         this.endpoint = ep;
-        pushPresetLists();
     }
 
     @Override
@@ -75,7 +98,7 @@ public final class RadioStub extends Radio {
         sourceEnabled = sourceEnabled || powered;
         refreshFrequency();
         return new RadioState(sourceEnabled, muted, FM_ID, station(),
-                programStations(), presetLists());
+                programStations(cachedPresetsHz), presetLists(cachedPresetsHz));
     }
 
     @Override
@@ -84,10 +107,7 @@ public final class RadioStub extends Radio {
         sourceEnabled = ok;
         int status = ok ? STATUS_OK : STATUS_INVALID;
         int r = endpoint != null ? endpoint.sendRadioSourceResponse(status, ok) : status;
-        if (ok) {
-            notifyStation();
-            pushPresetLists();
-        }
+        if (ok) notifyStation();
         return r;
     }
 
@@ -100,10 +120,7 @@ public final class RadioStub extends Radio {
         refreshFrequency();
         int status = ok ? STATUS_OK : STATUS_INVALID;
         int r = endpoint != null ? endpoint.sendActiveRadioResponse(status, FM_ID, station()) : status;
-        if (ok) {
-            notifyStation();
-            pushPresetLists();
-        }
+        if (ok) notifyStation();
         return r;
     }
 
@@ -198,8 +215,9 @@ public final class RadioStub extends Radio {
     @Override
     public int getProgramList(int radioId) {
         int status = validId(radioId) ? STATUS_OK : STATUS_INVALID;
+        if (status == STATUS_OK) refreshFavoriteCache();
         return endpoint != null
-                ? endpoint.sendProgramListResponse(status, radioId, true, programStations())
+                ? endpoint.sendProgramListResponse(status, radioId, true, programStations(cachedPresetsHz))
                 : status;
     }
 
@@ -219,51 +237,46 @@ public final class RadioStub extends Radio {
         return new RadioStationInfo(FM_TYPE, currentHz, 0);
     }
 
-    private int[] favoriteHz() {
-        ArrayList<Integer> raw = getFmFavorites();
-        if (raw == null || raw.isEmpty()) return PRESETS_HZ;
-        int[] out = new int[raw.size()];
-        int n = 0;
-        for (Integer value : raw) {
-            if (value == null) continue;
-            int v = value.intValue();
-            int hz = v >= FM_MIN_HZ ? v : v * 10000;
-            if (hz >= FM_MIN_HZ && hz <= FM_MAX_HZ) out[n++] = hz;
+    private void refreshFavoriteCache() {
+        try {
+            ArrayList<Integer> raw = getFmFavorites();
+            if (raw == null || raw.isEmpty()) return;
+            int[] out = new int[raw.size()];
+            int n = 0;
+            for (Integer value : raw) {
+                if (value == null) continue;
+                int v = value.intValue();
+                int hz = v >= FM_MIN_HZ ? v : v * 10000;
+                if (hz >= FM_MIN_HZ && hz <= FM_MAX_HZ) out[n++] = hz;
+            }
+            if (n == 0) return;
+            if (n != out.length) {
+                int[] trimmed = new int[n];
+                System.arraycopy(out, 0, trimmed, 0, n);
+                out = trimmed;
+            }
+            cachedPresetsHz = out;
+        } catch (Throwable t) {
+            Log.w(TAG, "refreshFavoriteCache", t);
         }
-        if (n == 0) return PRESETS_HZ;
-        if (n == out.length) return out;
-        int[] trimmed = new int[n];
-        System.arraycopy(out, 0, trimmed, 0, n);
-        return trimmed;
     }
 
-    private List programStations() {
-        int[] hzList = favoriteHz();
+    private List programStations(int[] hzList) {
         ArrayList list = new ArrayList(hzList.length);
         for (int hz : hzList) list.add(new RadioStationInfo(FM_TYPE, hz, 0));
         return list;
     }
 
-    private List presetLists() {
-        int[] hzList = favoriteHz();
+    private List presetLists(int[] hzList) {
         ArrayList presets = new ArrayList(hzList.length);
         for (int hz : hzList) presets.add(new StationPreset(FM_TYPE, hz, 0));
-        // Constructor order verified from AASink bytecode:
-        // (String name, List restrictedStationTypes, List presets)
+        // Verified from the original AASink constructor bytecode:
+        // p1=name, p2=restrictedStationTypes, p3=presets.
         StationPresetList list = new StationPresetList(
                 "즐겨찾기",
                 Collections.singletonList(Integer.valueOf(FM_TYPE)),
                 presets);
         return Collections.singletonList(list);
-    }
-
-    private void pushPresetLists() {
-        if (endpoint == null) return;
-        try {
-            endpoint.sendStationPresetsResponse(presetLists());
-        } catch (Throwable t) {
-            Log.w(TAG, "sendStationPresetsResponse", t);
-        }
     }
 
     private void notifyStation() {
