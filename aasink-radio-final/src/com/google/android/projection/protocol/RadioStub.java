@@ -1,11 +1,13 @@
 package com.google.android.projection.protocol;
 
+import android.content.Context;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.SystemClock;
 import android.util.Log;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -24,6 +26,9 @@ public final class RadioStub extends Radio {
     private static final int FM_MAX_HZ = 108000000;
     private static final int FM_SPACING_HZ = 100000;
     private static final int FALLBACK_HZ = 95700000;
+    private static final int[] PRESETS_HZ = {
+            91700000, 92500000, 93300000, 93700000, 94700000, 95700000
+    };
 
     private static final String DROID_DESC = "com.reglink.services.IDroidService";
     private static final String RADIO_DESC = "com.reglink.services.IRadioService";
@@ -47,6 +52,7 @@ public final class RadioStub extends Radio {
     @Override
     public void setRadioEndpoint(IRadioEndpoint ep) {
         this.endpoint = ep;
+        pushPresetLists();
     }
 
     @Override
@@ -66,7 +72,7 @@ public final class RadioStub extends Radio {
         sourceEnabled = sourceEnabled || powered;
         refreshFrequency();
         return new RadioState(sourceEnabled, muted, FM_ID, station(),
-                Collections.emptyList(), Collections.emptyList());
+                programStations(), presetLists());
     }
 
     @Override
@@ -75,7 +81,10 @@ public final class RadioStub extends Radio {
         sourceEnabled = ok;
         int status = ok ? STATUS_OK : STATUS_INVALID;
         int r = endpoint != null ? endpoint.sendRadioSourceResponse(status, ok) : status;
-        if (ok) notifyStation();
+        if (ok) {
+            notifyStation();
+            pushPresetLists();
+        }
         return r;
     }
 
@@ -88,7 +97,10 @@ public final class RadioStub extends Radio {
         refreshFrequency();
         int status = ok ? STATUS_OK : STATUS_INVALID;
         int r = endpoint != null ? endpoint.sendActiveRadioResponse(status, FM_ID, station()) : status;
-        if (ok) notifyStation();
+        if (ok) {
+            notifyStation();
+            pushPresetLists();
+        }
         return r;
     }
 
@@ -184,7 +196,7 @@ public final class RadioStub extends Radio {
     public int getProgramList(int radioId) {
         int status = validId(radioId) ? STATUS_OK : STATUS_INVALID;
         return endpoint != null
-                ? endpoint.sendProgramListResponse(status, radioId, true, Collections.emptyList())
+                ? endpoint.sendProgramListResponse(status, radioId, true, programStations())
                 : status;
     }
 
@@ -202,6 +214,29 @@ public final class RadioStub extends Radio {
 
     private RadioStationInfo station() {
         return new RadioStationInfo(FM_TYPE, currentHz, 0);
+    }
+
+    private List programStations() {
+        ArrayList list = new ArrayList(PRESETS_HZ.length);
+        for (int hz : PRESETS_HZ) list.add(new RadioStationInfo(FM_TYPE, hz, 0));
+        return list;
+    }
+
+    private List presetLists() {
+        ArrayList presets = new ArrayList(PRESETS_HZ.length);
+        for (int hz : PRESETS_HZ) presets.add(new StationPreset(FM_TYPE, hz, 0));
+        StationPresetList list = new StationPresetList(
+                "즐겨찾기", presets, Collections.singletonList(Integer.valueOf(FM_TYPE)));
+        return Collections.singletonList(list);
+    }
+
+    private void pushPresetLists() {
+        if (endpoint == null) return;
+        try {
+            endpoint.sendStationPresetsResponse(presetLists());
+        } catch (Throwable t) {
+            Log.w(TAG, "sendStationPresetsResponse", t);
+        }
     }
 
     private void notifyStation() {
@@ -230,10 +265,10 @@ public final class RadioStub extends Radio {
 
     private boolean activatePhysicalRadio() {
         try {
+            boolean hub = activateExistingRadioHubClient();
             boolean switched = mediaSwitchToRadio();
-            activateExistingRadioHubClient();
             boolean powered = radioPower(true);
-            sourceEnabled = powered || switched;
+            sourceEnabled = powered || switched || hub;
             muted = false;
             refreshFrequency();
             return powered || switched;
@@ -386,27 +421,52 @@ public final class RadioStub extends Radio {
         }
     }
 
+    /** Exact AIDL parcel shape used by IMediaService.audioSwitch(AudioSource). */
     private boolean mediaSwitchToRadio() {
         IBinder b = getMedia();
         if (b == null) return false;
+        Object audioSource = makeReglinkRadioAudioSource();
+        if (audioSource == null) return false;
         Parcel data = Parcel.obtain();
         Parcel reply = Parcel.obtain();
         try {
             data.writeInterfaceToken(MEDIA_DESC);
             data.writeInt(1);
-            data.writeInt(1);
-            data.writeInt(1);
-            data.writeInt(0);
-            data.writeInt(0);
-            data.writeInt(1);
+            Method writeToParcel = audioSource.getClass().getMethod("writeToParcel", Parcel.class, int.class);
+            writeToParcel.invoke(audioSource, data, 0);
             if (!b.transact(1, data, reply, 0)) return false;
             reply.readException();
             return reply.readInt() != 0;
         } catch (Throwable t) {
-            Log.e(TAG, "mediaSwitchToRadio", t);
+            Log.w(TAG, "mediaSwitchToRadio", t);
             return false;
         } finally {
             reply.recycle(); data.recycle();
+        }
+    }
+
+    /** The stock RadioHubClient uses AudioSource.makeAudioSource(1, 2). */
+    private Object makeReglinkRadioAudioSource() {
+        try {
+            Class<?> c;
+            try {
+                c = Class.forName("com.reglink.parcel.AudioSource");
+            } catch (Throwable missing) {
+                Method currentApplication = Class.forName("android.app.ActivityThread")
+                        .getDeclaredMethod("currentApplication");
+                currentApplication.setAccessible(true);
+                Context app = (Context) currentApplication.invoke(null);
+                if (app == null) return null;
+                Context radioContext = app.createPackageContext(
+                        "com.reglink.apps.radio",
+                        Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+                c = radioContext.getClassLoader().loadClass("com.reglink.parcel.AudioSource");
+            }
+            Method make = c.getMethod("makeAudioSource", int.class, int.class);
+            return make.invoke(null, 1, 2);
+        } catch (Throwable t) {
+            Log.w(TAG, "makeReglinkRadioAudioSource", t);
+            return null;
         }
     }
 
