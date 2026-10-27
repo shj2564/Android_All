@@ -1,0 +1,19 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'kr.song.peugeot.fmbridge'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'kr.song.peugeot.fmbridge'
+        minSdk 21
+        targetSdk 27
+        versionCode 100
+        versionName '1.0-final'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
