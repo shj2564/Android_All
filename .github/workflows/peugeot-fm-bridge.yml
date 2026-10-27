@@ -1,0 +1,53 @@
+name: Build Peugeot Android Auto FM Bridge
+
+on:
+  push:
+    branches:
+      - aa-peugeot-fm-bridge-final-20261027
+    paths-ignore:
+      - 'peugeot-fm-bridge/dist/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build both APKs
+        working-directory: peugeot-fm-bridge
+        run: gradle :phone:assembleDebug :headunit:assembleDebug --stacktrace
+      - name: Prepare artifacts
+        run: |
+          mkdir -p peugeot-fm-bridge/dist
+          cp peugeot-fm-bridge/phone/build/outputs/apk/debug/phone-debug.apk peugeot-fm-bridge/dist/Peugeot-FM-AndroidAuto-FINAL.apk
+          cp peugeot-fm-bridge/headunit/build/outputs/apk/debug/headunit-debug.apk peugeot-fm-bridge/dist/CMZX-FM-Bridge-FINAL.apk
+          sha256sum peugeot-fm-bridge/dist/*.apk > peugeot-fm-bridge/dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peugeot-fm-bridge-final
+          path: peugeot-fm-bridge/dist/
+      - name: Commit APKs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add peugeot-fm-bridge/dist
+          git commit -m "Build Peugeot FM Android Auto bridge FINAL" || exit 0
+          git push origin HEAD:aa-peugeot-fm-bridge-final-20261027
