@@ -20,6 +20,14 @@ public abstract class Radio {
         public RadioStationInfo(int radioType, int channel, int subChannel) {}
     }
 
+    public static class StationPreset {
+        public StationPreset(int type, int channel, int subChannel) {}
+    }
+
+    public static class StationPresetList {
+        public StationPresetList(String name, List presets, List restrictedStationTypes) {}
+    }
+
     public static class RadioState {
         public RadioState(boolean sourceEnabled, boolean muted, int activeRadioId,
                           RadioStationInfo stationInfo, List programList, List presetLists) {}
