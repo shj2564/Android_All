@@ -1,2 +1,4 @@
+557864551fb261eb9b1aca8a403569fab1bd85d3e7636acfcd0c13b75c2539ae  peugeot-fm-bridge/dist/CMZX-FM-Bridge-DIRECT.apk
 56f87cbd2e46d948ccf37e17f49068daba54ae077fe4a2f03248fb3c4576eff4  peugeot-fm-bridge/dist/CMZX-FM-Bridge-FINAL.apk
+2094fcd14ea1a4ae0d68415d50df9baf93d4ff2237732325330c17fb52f6ff25  peugeot-fm-bridge/dist/Peugeot-FM-AndroidAuto-DIRECT.apk
 fc20953c3cb3b2f99a3549ac4494cea0699600384102bf5b224187d9d4ee1245  peugeot-fm-bridge/dist/Peugeot-FM-AndroidAuto-FINAL.apk
