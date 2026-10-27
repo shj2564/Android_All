@@ -84,7 +84,7 @@ final class ReglinkRadioController {
     boolean step(boolean up){activate();return radioVoid(up?8:9);}
     boolean scan(boolean start){activate();return radioVoid(start?12:13);}
 
-    void activate(){activeClient();switchAudio();power(true);}
+    boolean activate(){activeClient();switchAudio();return power(true);}
 
     private boolean activeClient(){
         IBinder b=svc("MediaHub");if(b==null)return false;
@@ -112,5 +112,16 @@ final class ReglinkRadioController {
                 r.readException();return r.readInt()!=0;
             }finally{r.recycle();a.recycle();}
         }catch(Throwable t){Log.w(TAG,"switchAudio",t);return false;}
+    }
+    String diagnostics() {
+        try {
+            IBinder d=sm("reglink.droid");
+            if(d==null)return "reglink.droid NOT_FOUND (UID/firmware access required)";
+            IBinder b=svc("Radio");
+            if(b==null)return "reglink.droid OK / IRadioService NOT_FOUND";
+            int f=getFreq();
+            return "Reglink=OK, IRadioService=OK, getFreq="+f+
+                " (0 means unavailable/invalid)";
+        }catch(Throwable t){return "Binder error: "+t.getClass().getSimpleName();}
     }
 }
