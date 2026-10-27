@@ -1,0 +1,37 @@
+name: Build CMZX Reglink Radio Helper DEX
+
+on:
+  push:
+    branches:
+      - aasink-radio-final-build-20261027
+    paths:
+      - 'aasink-radio-final/src/com/google/android/projection/protocol/ReglinkRadioBridge.java'
+      - '.github/workflows/aasink-radio-helper.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build helper
+        run: |
+          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+          rm -rf /tmp/helper && mkdir -p /tmp/helper/classes /tmp/helper/dex
+          ANDROID_JAR="$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
+          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d /tmp/helper/classes             aasink-radio-final/src/com/google/android/projection/protocol/ReglinkRadioBridge.java
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/d8" --min-api 17 --lib "$ANDROID_JAR"             --output /tmp/helper/dex /tmp/helper/classes/com/google/android/projection/protocol/ReglinkRadioBridge.class
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reglink-radio-helper-dex
+          path: /tmp/helper/dex/classes.dex
+          if-no-files-found: error
