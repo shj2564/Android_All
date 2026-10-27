@@ -568,3 +568,5 @@ public final class RadioStub extends Radio {
 // R4 rebuild trigger
 
 // R4 artifact trigger
+
+// R4 in-place final trigger
