@@ -1,0 +1,5 @@
+CMZX65-U1 AASink physical FM bridge
+Class: com.google.android.projection.protocol.RadioStub
+Target: yellow.android.aasink_2025091316.apk
+Radio service: reglink.droid -> IRadioService
+Build: GitHub Actions / D8 min-api 17
