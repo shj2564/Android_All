@@ -33,23 +33,31 @@ jobs:
           rm -rf /tmp/cmzx-build
           mkdir -p /tmp/cmzx-build/stubs /tmp/cmzx-build/adapter /tmp/cmzx-build/dex
           ANDROID_JAR="$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
-          javac -source 8 -target 8 -cp "$ANDROID_JAR" -d /tmp/cmzx-build/stubs             aasink-radio-final/stubs/com/google/android/projection/protocol/Radio.java
+          javac -source 8 -target 8 -cp "$ANDROID_JAR"             -d /tmp/cmzx-build/stubs             aasink-radio-final/stubs/com/google/android/projection/protocol/Radio.java
           jar cf /tmp/cmzx-build/radio-stubs.jar -C /tmp/cmzx-build/stubs .
       - name: Compile real Reglink FM bridge
         run: |
           ANDROID_JAR="$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
-          javac -source 8 -target 8 -cp "$ANDROID_JAR:/tmp/cmzx-build/radio-stubs.jar"             -d /tmp/cmzx-build/adapter             aasink-radio-final/src/com/google/android/projection/protocol/RadioStub.java
-      - name: D8 adapter only
+          javac -source 8 -target 8             -cp "$ANDROID_JAR:/tmp/cmzx-build/radio-stubs.jar"             -d /tmp/cmzx-build/adapter             aasink-radio-final/src/com/google/android/projection/protocol/RadioStub.java
+          find /tmp/cmzx-build/adapter/com/google/android/projection/protocol -maxdepth 1             -name 'RadioStub*.class' -print -exec ls -lh {} \;
+      - name: D8 adapter including generated inner classes
         run: |
           ANDROID_JAR="$ANDROID_SDK_ROOT/platforms/android-35/android.jar"
-          "$ANDROID_SDK_ROOT/build-tools/35.0.0/d8"             --min-api 17             --lib "$ANDROID_JAR"             --classpath /tmp/cmzx-build/radio-stubs.jar             --output /tmp/cmzx-build/dex             /tmp/cmzx-build/adapter/com/google/android/projection/protocol/RadioStub.class
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/d8"             --min-api 17             --lib "$ANDROID_JAR"             --classpath /tmp/cmzx-build/radio-stubs.jar             --output /tmp/cmzx-build/dex             /tmp/cmzx-build/adapter/com/google/android/projection/protocol/RadioStub*.class
           test -s /tmp/cmzx-build/dex/classes.dex
       - name: Prepare reproducible artifact
         run: |
           mkdir -p build-artifacts/aasink-radio-final
+          cp /tmp/cmzx-build/dex/classes.dex build-artifacts/aasink-radio-final/RadioStub.real-fm.dex
           base64 -w0 /tmp/cmzx-build/dex/classes.dex > build-artifacts/aasink-radio-final/RadioStub.real-fm.dex.b64
           sha256sum /tmp/cmzx-build/dex/classes.dex | awk '{print $1}' > build-artifacts/aasink-radio-final/RadioStub.real-fm.dex.sha256
-          printf '%s\n'             'CMZX65-U1 AASink physical FM bridge'             'Class: com.google.android.projection.protocol.RadioStub'             'Target: yellow.android.aasink_2025091316.apk'             'Radio service: reglink.droid -> IRadioService'             'Build: GitHub Actions / D8 min-api 17'             > build-artifacts/aasink-radio-final/BUILD_INFO.txt
+          printf '%s\n'             'CMZX65-U1 AASink physical FM bridge'             'Classes: RadioStub + generated inner classes'             'Target: yellow.android.aasink_2025091316.apk'             'Merge target: v01 classes4.dex'             'Build: GitHub Actions / D8 min-api 17'             > build-artifacts/aasink-radio-final/BUILD_INFO.txt
+      - name: Upload bridge dex artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aasink-radio-bridge-dex
+          path: /tmp/cmzx-build/dex/classes.dex
+          if-no-files-found: error
       - name: Commit build artifact
         run: |
           git config user.name "github-actions[bot]"
