@@ -24,6 +24,13 @@ public class MainActivity extends Activity {
         state=new TextView(this);state.setTextSize(17);root.addView(state);
         Button refresh=new Button(this);refresh.setText("IP / Binder 상태 확인");root.addView(refresh);
         refresh.setOnClickListener(v->showStatus());
+        Button checkBinder=new Button(this);checkBinder.setText("Reglink Binder 읽기 진단");root.addView(checkBinder);
+        checkBinder.setOnClickListener(v->{
+            new Thread(()->{
+                String info=new ReglinkRadioController(this).diagnostics();
+                runOnUiThread(()->state.append("\nBinder 진단: "+info));
+            },"fm-binder-probe").start();
+        });
         Button start=new Button(this);start.setText("로컬 FM 서비스 다시 시작");root.addView(start);
         start.setOnClickListener(v->{launchService();showStatus();});
         launchService();showStatus();setContentView(root);
