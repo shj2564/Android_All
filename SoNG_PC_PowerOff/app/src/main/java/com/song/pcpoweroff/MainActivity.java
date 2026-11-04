@@ -6,6 +6,8 @@ import android.content.res.ColorStateList;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -31,13 +33,18 @@ public class MainActivity extends Activity {
     private static final String BASE = "https://52.78.116.196";
     private static final String PREFS = "song_power_prefs";
     private static final String KEY_TOKEN = "api_token";
+    private static final String KEY_SHUTDOWN_PENDING_UNTIL = "shutdown_pending_until";
+    private static final long SHUTDOWN_MONITOR_MS = 180_000L;
+    private static final long SHUTDOWN_POLL_MS = 5_000L;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private SharedPreferences prefs;
     private TextView status;
     private Button power;
     private Button refresh;
     private boolean pcOnline = false;
+    private boolean shutdownMonitoring = false;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -49,18 +56,20 @@ public class MainActivity extends Activity {
             power.setEnabled(false);
             showTokenDialog(true);
         } else {
-            checkHealth();
+            resumeOrCheck();
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (prefs != null && isValidToken(prefs.getString(KEY_TOKEN, ""))) checkHealth();
+        if (prefs != null && isValidToken(prefs.getString(KEY_TOKEN, ""))) resumeOrCheck();
     }
 
     @Override
     protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        shutdownMonitoring = false;
         executor.shutdownNow();
         super.onDestroy();
     }
@@ -181,6 +190,16 @@ public class MainActivity extends Activity {
         return s != null && s.matches("[0-9a-fA-F]{64}");
     }
 
+    private void resumeOrCheck() {
+        long until = prefs.getLong(KEY_SHUTDOWN_PENDING_UNTIL, 0L);
+        if (until > System.currentTimeMillis()) {
+            startShutdownMonitor();
+        } else {
+            if (until != 0L) prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+            checkHealth();
+        }
+    }
+
     private void checkHealth() {
         final String token = prefs.getString(KEY_TOKEN, "");
         if (!isValidToken(token)) {
@@ -247,13 +266,9 @@ public class MainActivity extends Activity {
             try {
                 Result r = request("POST", "/__songpower/shutdown", token);
                 if (r.code == 202 && r.body.contains("\"queued\":true")) {
-                    runOnUiThread(() -> {
-                        status.setText("✓ 종료 요청 전송 완료 · 약 60초 후 종료");
-                        status.setTextColor(Color.rgb(35, 125, 55));
-                        pcOnline = false;
-                        setBusy(false, null);
-                        power.setEnabled(false);
-                    });
+                    prefs.edit().putLong(KEY_SHUTDOWN_PENDING_UNTIL,
+                            System.currentTimeMillis() + SHUTDOWN_MONITOR_MS).apply();
+                    runOnUiThread(this::startShutdownMonitor);
                 } else if (r.code == 409) {
                     runOnUiThread(() -> {
                         status.setText("PC가 오프라인입니다.");
@@ -273,6 +288,85 @@ public class MainActivity extends Activity {
                     status.setText("종료 요청 실패 · 다시 시도하세요.");
                     status.setTextColor(Color.rgb(190, 40, 40));
                     setBusy(false, null);
+                });
+            }
+        });
+    }
+
+    private void startShutdownMonitor() {
+        if (shutdownMonitoring) return;
+        shutdownMonitoring = true;
+        pcOnline = false;
+        power.setEnabled(false);
+        refresh.setEnabled(false);
+        status.setText("⏳ 종료 중… PC 응답 확인 중");
+        status.setTextColor(Color.rgb(230, 126, 34));
+        pollShutdownState();
+    }
+
+    private void pollShutdownState() {
+        if (!shutdownMonitoring || isFinishing() || isDestroyed()) return;
+        final String token = prefs.getString(KEY_TOKEN, "");
+        final long until = prefs.getLong(KEY_SHUTDOWN_PENDING_UNTIL, 0L);
+        if (!isValidToken(token)) {
+            shutdownMonitoring = false;
+            prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+            status.setText("인증키가 필요합니다.");
+            refresh.setEnabled(true);
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                Result r = request("GET", "/__songpower/health", token);
+                boolean online = r.code == 200 && r.body.contains("\"pc_online\":true");
+                runOnUiThread(() -> {
+                    if (!shutdownMonitoring) return;
+                    if (r.code == 401) {
+                        shutdownMonitoring = false;
+                        prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+                        status.setText("인증키가 올바르지 않습니다.");
+                        status.setTextColor(Color.rgb(190, 40, 40));
+                        refresh.setEnabled(true);
+                        return;
+                    }
+                    if (!online && r.code == 200) {
+                        shutdownMonitoring = false;
+                        prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+                        pcOnline = false;
+                        status.setText("○ PC 오프라인 · 종료 완료");
+                        status.setTextColor(Color.rgb(110, 110, 110));
+                        refresh.setEnabled(true);
+                        power.setEnabled(false);
+                        return;
+                    }
+                    if (System.currentTimeMillis() >= until) {
+                        shutdownMonitoring = false;
+                        prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+                        status.setText("종료 지연 · 상태 새로고침으로 확인하세요.");
+                        status.setTextColor(Color.rgb(190, 120, 20));
+                        refresh.setEnabled(true);
+                        power.setEnabled(false);
+                        return;
+                    }
+                    long remain = Math.max(0L, (until - System.currentTimeMillis()) / 1000L);
+                    status.setText("⏳ 종료 중… PC 응답 대기 (" + remain + "초)");
+                    status.setTextColor(Color.rgb(230, 126, 34));
+                    handler.postDelayed(this::pollShutdownState, SHUTDOWN_POLL_MS);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    if (!shutdownMonitoring) return;
+                    if (System.currentTimeMillis() >= until) {
+                        shutdownMonitoring = false;
+                        prefs.edit().remove(KEY_SHUTDOWN_PENDING_UNTIL).apply();
+                        status.setText("VPS 연결 실패 · 상태를 다시 확인하세요.");
+                        status.setTextColor(Color.rgb(190, 40, 40));
+                        refresh.setEnabled(true);
+                    } else {
+                        status.setText("⏳ 종료 중… VPS 재확인 중");
+                        status.setTextColor(Color.rgb(230, 126, 34));
+                        handler.postDelayed(this::pollShutdownState, SHUTDOWN_POLL_MS);
+                    }
                 });
             }
         });
